@@ -1,7 +1,35 @@
-from flask import Flask
+from flask import Flask, request, Response
 import os
+import hmac
 
 app = Flask(__name__)
+
+@app.before_request
+def check_password():
+    password = os.environ.get("APP_PASSWORD")
+
+    if not password:
+        return Response(
+            "Password setup required",
+            status=503
+        )
+
+    auth = request.authorization
+
+    if auth and auth.username == "admin":
+        if hmac.compare_digest(
+            (auth.password or "").encode("utf-8"),
+            password.encode("utf-8")
+        ):
+            return None
+
+    return Response(
+        "Login required",
+        status=401,
+        headers={
+            "WWW-Authenticate": 'Basic realm="AI Video Studio"'
+        }
+    )
 
 @app.route("/")
 def home():
@@ -36,7 +64,7 @@ def home():
     </head>
     <body>
     <h1>AI Video Studio</h1>
-    <p>AI動画生成アプリ</p>
+    <p>自分専用AI動画生成アプリ</p>
     <input type="file" accept="image/*">
     <textarea placeholder="生成したい動画の内容を入力"></textarea>
     <select>
@@ -51,5 +79,7 @@ def home():
     """
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0",
-            port=int(os.environ.get("PORT", 10000)))
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000))
+    )
